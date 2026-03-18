@@ -1,0 +1,8 @@
+# Airflow DAG dependencies
+# Install inside the Airflow container:
+#   pip install -r requirements.txt
+
+apache-airflow==2.8.1
+apache-airflow-providers-http==4.7.0
+apache-airflow-providers-postgres==5.7.1
+requests==2.31.0

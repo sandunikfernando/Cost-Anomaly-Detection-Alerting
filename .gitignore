@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Environment secrets — NEVER commit these
+.env
+backend/config/service-account-key.json
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Airflow
+airflow/logs/
+airflow/plugins/
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker
+*.override.yml
+
+# IDE
+.vscode/
+.idea/

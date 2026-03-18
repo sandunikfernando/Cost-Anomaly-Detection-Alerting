@@ -1,0 +1,109 @@
+### ============================================================
+### COST ANOMALY DETECTION — API Test File
+### Uses VS Code "REST Client" extension (humao.rest-client)
+### Install: Ctrl+Shift+X → search "REST Client"
+### Run: Click "Send Request" above any request block
+### ============================================================
+
+@baseUrl = http://localhost:3000
+@apiKey  = dev-api-key
+@date    = 2025-03-13
+
+### ── Health Check (no auth needed) ────────────────────────────
+GET {{baseUrl}}/health
+
+### ── Task 1: Fetch Billing from GCP BigQuery ──────────────────
+POST {{baseUrl}}/api/billing/fetch
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── Task 2: Aggregate Costs by Team/Project ──────────────────
+POST {{baseUrl}}/api/billing/aggregate
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── View Raw Costs for a Date ─────────────────────────────────
+GET {{baseUrl}}/api/billing/raw?date={{date}}
+X-API-Key: {{apiKey}}
+
+### ── Task 3: Detect Anomalies ──────────────────────────────────
+POST {{baseUrl}}/api/anomaly/detect
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── List Anomalies for a Date ──────────────────────────────────
+GET {{baseUrl}}/api/anomaly/list?date={{date}}
+X-API-Key: {{apiKey}}
+
+### ── Task 4: Compare Against Budgets ───────────────────────────
+POST {{baseUrl}}/api/budget/compare
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── List All Team Budgets ──────────────────────────────────────
+GET {{baseUrl}}/api/budget/list
+X-API-Key: {{apiKey}}
+
+### ── Upsert a Budget ────────────────────────────────────────────
+POST {{baseUrl}}/api/budget/upsert
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "teamId": "platform",
+  "projectId": "proj-platform-prod",
+  "monthlyBudget": 50000,
+  "alertThreshold": 0.80,
+  "ownerEmail": "platform-lead@yourcompany.com"
+}
+
+### ── Task 5: Send Alerts (Slack + Email) ───────────────────────
+POST {{baseUrl}}/api/alerts/send
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── Task 6: Create ServiceNow Tickets ─────────────────────────
+POST {{baseUrl}}/api/tickets/create
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "date": "{{date}}"
+}
+
+### ── Auth Test: Missing API Key (expect 401) ───────────────────
+POST {{baseUrl}}/api/billing/fetch
+Content-Type: application/json
+
+{
+  "date": "{{date}}"
+}
+
+### ── Auth Test: Wrong API Key (expect 403) ─────────────────────
+POST {{baseUrl}}/api/billing/fetch
+Content-Type: application/json
+X-API-Key: wrong-key
+
+{
+  "date": "{{date}}"
+}

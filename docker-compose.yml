@@ -1,0 +1,160 @@
+version: "3.9"
+
+# ============================================================
+# COST ANOMALY DETECTION — FULL STACK
+# ============================================================
+# Start everything:
+#   docker-compose up -d
+#
+# First-time database setup:
+#   docker-compose exec postgres psql -U finops_user -d finops_db -f /schema.sql
+#
+# View Airflow UI: http://localhost:8080  (admin / admin)
+# View Node.js API: http://localhost:3000/health
+# ============================================================
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.8.1
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_pass@postgres:5432/airflow_db
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+    AIRFLOW__WEBSERVER__SECRET_KEY: "change-me-in-production"
+    # Airflow Variables (backend URL + API key)
+    AIRFLOW_VAR_COST_ANOMALY_BACKEND_URL: "http://nodejs-backend:3000"
+    AIRFLOW_VAR_COST_ANOMALY_API_KEY: "${API_KEY:-dev-api-key}"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/requirements.txt:/requirements.txt
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - finops-net
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: finops-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Creates both application and Airflow databases
+      POSTGRES_MULTIPLE_DATABASES: "finops_db:finops_user:finops_pass,airflow_db:airflow_user:airflow_pass"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./backend/src/models/schema.sql:/schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finops-net
+
+  # ── Node.js Backend ─────────────────────────────────────────
+  nodejs-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finops-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: "postgres://finops_user:finops_pass@postgres:5432/finops_db"
+      GCP_PROJECT_ID: "${GCP_PROJECT_ID}"
+      GCP_BILLING_DATASET: "${GCP_BILLING_DATASET:-billing_dataset}"
+      GCP_BILLING_TABLE: "${GCP_BILLING_TABLE:-gcp_billing_export_v1}"
+      SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL}"
+      SLACK_CHANNEL: "${SLACK_CHANNEL:-#finops-alerts}"
+      SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
+      ALERT_EMAIL_FROM: "${ALERT_EMAIL_FROM}"
+      ALERT_EMAIL_TO: "${ALERT_EMAIL_TO}"
+      SERVICENOW_INSTANCE: "${SERVICENOW_INSTANCE}"
+      SERVICENOW_USER: "${SERVICENOW_USER}"
+      SERVICENOW_PASS: "${SERVICENOW_PASS}"
+      SERVICENOW_ASSIGNMENT_GROUP: "${SERVICENOW_ASSIGNMENT_GROUP:-FinOps Team}"
+      ANOMALY_ZSCORE_THRESHOLD: "${ANOMALY_ZSCORE_THRESHOLD:-2.5}"
+      ANOMALY_LOOKBACK_DAYS: "${ANOMALY_LOOKBACK_DAYS:-7}"
+      BUDGET_ALERT_THRESHOLD: "${BUDGET_ALERT_THRESHOLD:-0.8}"
+      API_KEY: "${API_KEY:-dev-api-key}"
+    volumes:
+      # Mount GCP service account key
+      - ./backend/config/service-account-key.json:/app/config/service-account-key.json:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - finops-net
+
+  # ── Airflow Init (runs once) ────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    container_name: finops-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install -r /requirements.txt --quiet
+        airflow db init
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname FinOps \
+          --lastname Admin \
+          --role Admin \
+          --email admin@yourcompany.com
+        echo "Airflow init complete"
+    restart: "no"
+
+  # ── Airflow Webserver ───────────────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: finops-airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ── Airflow Scheduler ───────────────────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: finops-airflow-scheduler
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+
+networks:
+  finops-net:
+    driver: bridge
