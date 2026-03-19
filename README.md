@@ -302,5 +302,4 @@ Set these in the Airflow UI under **Admin → Variables**:
 | `BUDGET_ALERT_THRESHOLD` | No | `0.8` | Budget % that triggers alert |
 | `API_KEY` | Yes | — | Shared key for Airflow→Node.js |
 =======
-# Cost-Anomaly-Detection-Alerting
->>>>>>> 30ea4171005b7978e0f4a5f29290b9f037bc5d35
+
