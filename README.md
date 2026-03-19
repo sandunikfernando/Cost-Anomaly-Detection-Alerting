@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # FinOps Cost Anomaly Detection & Alerting
 
 Automatically detects unexpected GCP cloud spending and routes alerts
