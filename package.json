@@ -1,0 +1,19 @@
+{
+  "name": "cost-anomaly-detection",
+  "version": "1.0.0",
+  "description": "Automated system for monitoring cloud billing data and detecting cost anomalies",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^6.0.0",
+    "dotenv": "^16.0.0",
+    "node-fetch": "^2.6.7",
+    "nodemailer": "^6.9.4"
+  },
+  "keywords": ["finops", "bigquery", "anomaly-detection"],
+  "author": "",
+  "license": "ISC"
+}
