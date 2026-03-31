@@ -92,7 +92,7 @@ GITHUB_REPO=your-org/your-repo
 
 ---
 
-## 4) Budget Configuration (Step 4)
+## 4) Budget Configuration
 
 Define project/team budgets in `config/budgets.json` (sample values included):
 
@@ -163,7 +163,10 @@ Update the `PROJECT_DIR` variable in `dags/cost_anomaly_dag.py` to match your re
 │   └── budgets.json
 ├── dags/
 │   └── cost_anomaly_dag.py
-├── services/
+├── logs/
+    ├── alert_log.json
+├── services/│   
+    ├── alertLogger.js
 │   ├── alertService.js
 │   ├── anomalyService.js
 │   ├── bigqueryService.js
@@ -183,3 +186,11 @@ Update the `PROJECT_DIR` variable in `dags/cost_anomaly_dag.py` to match your re
 - **Credentials**: Keep `bq-data-reader-key.json` and `.env` out of version control (add to `.gitignore`).
 - **Budget Definition**: Budgets are treated as daily spend limits; adjust as needed.
 - **Airflow**: The DAG uses `BashOperator` to call the Node.js pipeline; you can replace this with a Python operator if desired.
+
+## 8) Testing
+
+```bash
+node test.csv.js
+```
+log of the alert should be added into the logs/alerts_log.json
+
